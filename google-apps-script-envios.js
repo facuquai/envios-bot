@@ -26,19 +26,21 @@ const COLS = {
   COSTO_ENVIO:        15,  // Lo carga Fede manualmente
   CODIGO_SEGUIMIENTO: 16,
   LINK_TRACKING:      17,
+  EMAIL:              18,  // ← nuevo
   // Control
-  DATOS_FALTANTES:    18,
+  DATOS_FALTANTES:    19,  // ← era 18
 };
 
-const TOTAL_COLS = 18;
+const TOTAL_COLS = 19;
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
 
-    if (data.accion === "nuevo_envio")          return handleNuevoEnvio(data);
-    if (data.accion === "actualizar_codigo")    return handleActualizarCodigo(data);
-    if (data.accion === "marcar_pago")          return handleMarcarPago(data);
+    if (data.accion === "nuevo_envio")              return handleNuevoEnvio(data);
+    if (data.accion === "actualizar_codigo")        return handleActualizarCodigo(data);
+    if (data.accion === "marcar_pago")              return handleMarcarPago(data);
+    if (data.accion === "enviar_mails_tracking")    return handleEnviarMails();
 
     return respuesta({ ok: false, error: "Acción desconocida" });
   } catch (err) {
@@ -73,6 +75,7 @@ function handleNuevoEnvio(data) {
     "",      // Costo envío: lo carga Fede
     "",      // Código seguimiento
     "",      // Link tracking
+    data.email || "",   // ← nuevo
     data.datos_faltantes || "",
   ];
 
@@ -136,6 +139,73 @@ function handleMarcarPago(data) {
   return respuesta({ ok: true, fila });
 }
 
+function handleEnviarMails() {
+  const sheet = obtenerOCrearSheet();
+  const ultima = sheet.getLastRow();
+  if (ultima < 2) return respuesta({ ok: true, enviados: 0 });
+
+  const datos = sheet.getRange(2, 1, ultima - 1, TOTAL_COLS).getValues();
+  let enviados = 0;
+  let errores = [];
+
+  datos.forEach((fila, i) => {
+    const nombre  = fila[COLS.NOMBRE - 1];
+    const codigo  = fila[COLS.CODIGO_SEGUIMIENTO - 1];
+    const link    = fila[COLS.LINK_TRACKING - 1];
+    const email   = fila[COLS.EMAIL - 1];
+
+    // Skip si falta código o email
+    if (!codigo || !email) return;
+
+    // Skip si ya fue enviado (marcado con ✓)
+    if (String(email).startsWith("✓")) return;
+
+    try {
+      const asunto = `FastLife 📦 Tu pedido está en camino`;
+      const cuerpo =
+        `Hola ${nombre || ""}!\n\n` +
+        `Tu pedido de FastLife ya fue despachado por Correo Argentino.\n\n` +
+        `Código de seguimiento: ${codigo}\n\n` +
+        `Podés rastrear tu envío acá:\n${link}\n\n` +
+        `Cualquier consulta respondé este mail.\n\n` +
+        `— FastLife`;
+
+      GmailApp.sendEmail(email, asunto, cuerpo);
+
+      // Marcar como enviado
+      sheet.getRange(i + 2, COLS.EMAIL)
+        .setValue("✓ " + email)
+        .setBackground("#b7e1cd")
+        .setFontWeight("bold");
+
+      enviados++;
+    } catch (err) {
+      errores.push(`Fila ${i + 2}: ${err.toString()}`);
+    }
+  });
+
+  // Mostrar resumen en un popup si se corre desde el menú
+  try {
+    SpreadsheetApp.getUi().alert(
+      `✅ Mails enviados: ${enviados}` +
+      (errores.length ? `\n\n⚠️ Errores:\n${errores.join("\n")}` : "")
+    );
+  } catch (e) {
+    // Si se llama desde webhook no hay UI, ignorar
+  }
+
+  return respuesta({ ok: true, enviados, errores });
+}
+
+// ── Menú custom ───────────────────────────────────────────────────────────────
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("📦 FastLife")
+    .addItem("Enviar mails de tracking pendientes", "handleEnviarMails")
+    .addToUi();
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function obtenerOCrearSheet() {
@@ -169,6 +239,7 @@ function agregarEncabezados(sheet) {
     "💰 Costo Envío",
     "🔎 Código Seguimiento",
     "🔗 Link Tracking",
+    "📧 Email",           // ← nuevo
     "⚠️ Datos Faltantes",
   ];
 
@@ -181,22 +252,21 @@ function agregarEncabezados(sheet) {
   sheet.setFrozenRows(1);
 
   // Anchos
-  const anchos = [150, 170, 130, 110, 160, 80, 90, 150, 120, 150, 130, 70, 180, 110, 110, 160, 120, 200];
+  const anchos = [150, 170, 130, 110, 160, 80, 90, 150, 120, 150, 130, 70, 180, 110, 110, 160, 120, 180, 200];
   anchos.forEach((ancho, i) => sheet.setColumnWidth(i + 1, ancho));
 
-  // Checkbox en el encabezado de "Envío Pagado" para referencia visual
   sheet.getRange(1, COLS.ENVIO_PAGADO).setNote("TRUE = pagado, FALSE = pendiente");
 }
 
 function resaltarVacias(sheet, fila, data, esDomicilio) {
   const camposCriticos = esDomicilio
     ? [
-        { col: COLS.NOMBRE,   val: data.nombre },
-        { col: COLS.CALLE,    val: data.calle },
-        { col: COLS.NUMERO,   val: data.numero },
-        { col: COLS.CIUDAD,   val: data.ciudad },
-        { col: COLS.PROVINCIA,val: data.provincia },
-        { col: COLS.CP,       val: data.cp },
+        { col: COLS.NOMBRE,    val: data.nombre },
+        { col: COLS.CALLE,     val: data.calle },
+        { col: COLS.NUMERO,    val: data.numero },
+        { col: COLS.CIUDAD,    val: data.ciudad },
+        { col: COLS.PROVINCIA, val: data.provincia },
+        { col: COLS.CP,        val: data.cp },
       ]
     : [
         { col: COLS.NOMBRE,          val: data.nombre },
@@ -218,7 +288,8 @@ function respuesta(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── Test manual ───────────────────────────────────────────────────────────────
+// ── Tests manuales ────────────────────────────────────────────────────────────
+
 function testDomicilio() {
   const e = {
     postData: {
@@ -226,6 +297,7 @@ function testDomicilio() {
         accion: "nuevo_envio",
         nombre: "María González",
         telefono: "11-5555-4444",
+        email: "maria@gmail.com",
         tipo_envio: "domicilio",
         calle: "Av. Corrientes",
         numero: "1234",
@@ -251,6 +323,7 @@ function testSucursal() {
         accion: "nuevo_envio",
         nombre: "Pedro Díaz",
         telefono: "351-6223344",
+        email: "pedro@gmail.com",
         tipo_envio: "sucursal",
         calle: "", numero: "", piso_depto: "", entre_calles: "", barrio: "",
         ciudad: "Córdoba",
@@ -263,4 +336,8 @@ function testSucursal() {
     },
   };
   Logger.log(doPost(e).getContent());
+}
+
+function testEnviarMails() {
+  handleEnviarMails();
 }
