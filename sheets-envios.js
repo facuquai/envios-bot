@@ -10,7 +10,8 @@ async function enviarEnvioASheet(envio) {
   const payload = {
     accion: "nuevo_envio",
     nombre: envio.nombre || "",
-    telefono: envio.telefono || "",
+    telefono: envio.telefono || ""
+    email: envio.email || "",
     tipo_envio: envio.tipo_envio || "",
 
     // Campos domicilio
