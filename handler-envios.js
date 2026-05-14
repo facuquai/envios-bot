@@ -18,6 +18,7 @@ async function handleCanalEnvios(message) {
 
     try {
       const envio = await parsearEnvio(texto);
+      console.log("EMAIL PARSEADO:", envio.email);
       const resultado = await enviarEnvioASheet(envio);
       const fila = resultado.fila;
       const esDomicilio = envio.tipo_envio === "domicilio";
