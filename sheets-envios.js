@@ -1,5 +1,4 @@
 const fetch = require("node-fetch");
-
 const WEBHOOK_URL = process.env.GOOGLE_SHEETS_WEBHOOK_ENVIOS;
 
 async function enviarEnvioASheet(envio) {
@@ -13,7 +12,6 @@ async function enviarEnvioASheet(envio) {
     telefono: envio.telefono || "",
     email: envio.email || "",
     tipo_envio: envio.tipo_envio || "",
-
     // Campos domicilio
     calle: d.calle || "",
     numero: d.numero || "",
@@ -23,16 +21,16 @@ async function enviarEnvioASheet(envio) {
     ciudad: esDomicilio ? (d.ciudad || "") : (s.ciudad || ""),
     provincia: esDomicilio ? (d.provincia || "") : (s.provincia || ""),
     cp: esDomicilio ? (d.cp || "") : (s.cp || ""),
-
     // Campo sucursal
     nombre_sucursal: s.nombre_sucursal || "",
-
     // Control
     datos_faltantes: envio._faltantes ? envio._faltantes.join(", ") : "",
     fecha: new Date().toLocaleString("es-AR", {
       timeZone: "America/Argentina/Buenos_Aires",
     }),
   };
+
+  console.log("PAYLOAD EMAIL:", payload.email);
 
   const response = await fetch(WEBHOOK_URL, {
     method: "POST",
@@ -44,7 +42,6 @@ async function enviarEnvioASheet(envio) {
   if (!response.ok) {
     throw new Error(`Error al enviar al Sheet de envíos: ${response.status}`);
   }
-
   return await response.json();
 }
 
@@ -65,7 +62,6 @@ async function actualizarCodigo(fila, codigo) {
   if (!response.ok) {
     throw new Error(`Error al actualizar código: ${response.status}`);
   }
-
   return await response.json();
 }
 
@@ -85,7 +81,6 @@ async function marcarPago(fila, pagado) {
   if (!response.ok) {
     throw new Error(`Error al marcar pago: ${response.status}`);
   }
-
   return await response.json();
 }
 
