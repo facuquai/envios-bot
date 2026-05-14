@@ -43,6 +43,7 @@ Devolvé exactamente este JSON:
 Reglas:
 - Si menciona "a domicilio", "me lo mandás a casa", una dirección con calle y número → tipo_envio = "domicilio", completar objeto "domicilio"
 - Si menciona "sucursal", "retiro en correo", "correo argentino de [ciudad]" → tipo_envio = "sucursal", completar objeto "sucursal"
+- El campo "email" puede aparecer como "mail:", "email:", "correo:" o directamente como una dirección con @ — extraerlo siempre que contenga @
 - El objeto que NO aplique dejarlo con todos sus campos en null
 - Para _faltantes incluir solo los campos críticos para el rótulo según el tipo de envío:
   - Domicilio: nombre, calle, numero, ciudad, provincia, cp
