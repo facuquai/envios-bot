@@ -16,6 +16,7 @@ Devolvé exactamente este JSON:
 {
   "nombre": "nombre completo del destinatario o null",
   "telefono": "número de teléfono o null",
+  "email": "email del destinatario o null",
   "tipo_envio": "domicilio" o "sucursal" o null,
 
   "domicilio": {
